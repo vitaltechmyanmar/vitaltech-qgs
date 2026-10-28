@@ -1,0 +1,19 @@
+# Keep build context small and deterministic. Native dependencies are installed
+# inside the image, never copied from the host.
+node_modules
+.pnpm-store
+.next
+coverage
+.git
+.github
+.env
+.env.*
+!.env.example
+*.log
+tsconfig.tsbuildinfo
+
+# Infrastructure/docs are mounted or read from the host, not baked into images.
+deploy
+docker-compose.prod.yml
+docs
+README.md

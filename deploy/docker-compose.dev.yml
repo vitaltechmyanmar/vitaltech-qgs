@@ -1,0 +1,63 @@
+# Development stack: PostgreSQL + Next.js with Chromium for PDF.
+#   cp .env.example .env.local   # optional; compose sets working dev defaults
+#   docker compose -f deploy/docker-compose.dev.yml up
+#
+# The Playwright image ships Chromium and the shared libraries it needs, so the
+# PDF route works locally exactly as it does in production.
+
+name: qgs-dev
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: qgs
+      POSTGRES_PASSWORD: qgs
+      POSTGRES_DB: vitaltech_quotes
+      TZ: Asia/Yangon
+    ports:
+      - "55432:5432"
+    volumes:
+      - qgs_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U qgs -d vitaltech_quotes"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  app:
+    image: mcr.microsoft.com/playwright:v1.49.1-noble
+    working_dir: /app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      TZ: Asia/Yangon
+      PORT: "3000"
+      AUTH_SECRET: dev-only-secret-change-me-0123456789abcdef
+      AUTH_URL: http://localhost:3000
+      AUTH_TRUST_HOST: "true"
+      APP_URL: http://localhost:3000
+      DATABASE_URL: postgresql://qgs:qgs@db:5432/vitaltech_quotes
+      MIGRATION_DATABASE_URL: postgresql://qgs:qgs@db:5432/vitaltech_quotes
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      PDF_MAX_CONCURRENCY: "2"
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - qgs_node_modules:/app/node_modules
+      - qgs_pnpm_store:/pnpm/store
+    command: >
+      sh -c "corepack enable &&
+             pnpm install &&
+             pnpm db:migrate &&
+             pnpm db:seed &&
+             pnpm dev --hostname 0.0.0.0"
+
+volumes:
+  qgs_pgdata:
+  qgs_node_modules:
+  qgs_pnpm_store:

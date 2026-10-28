@@ -1,0 +1,75 @@
+# Production compose file — EC2 host, image pulled from ECR.
+# Migrations run as a one-off service before the app is recreated.
+
+name: qgs
+
+services:
+  app:
+    image: ${QGS_IMAGE:?set QGS_IMAGE to the ECR image URI with a git-sha tag}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+      TZ: Asia/Yangon
+    ports:
+      - "127.0.0.1:3000:3000"
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION:-ap-southeast-1}
+        awslogs-group: /qgs/prod/app
+        awslogs-stream: app
+        awslogs-create-group: "true"
+    deploy:
+      resources:
+        limits:
+          memory: 1600M
+
+  # One-off: applies db/migrations then exits. Runs before `app` is recreated.
+  # Image is published by CI as <app-image>-migrate.
+  migrate:
+    image: ${QGS_MIGRATE_IMAGE:?set QGS_MIGRATE_IMAGE to the migrator image URI}
+    env_file:
+      - .env.production
+    restart: "no"
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION:-ap-southeast-1}
+        awslogs-group: /qgs/prod/migrate
+        awslogs-stream: migrate
+        awslogs-create-group: "true"
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/qgs.conf:/etc/nginx/conf.d/default.conf:ro
+      # certbot runs on the host and writes here
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/var/www/certbot:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/nginx-health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION:-ap-southeast-1}
+        awslogs-group: /qgs/prod/nginx
+        awslogs-stream: nginx
+        awslogs-create-group: "true"
+
+# certbot is installed on the host (see docs/06), not in a container:
+#   certbot renew --webroot -w /var/www/certbot \
+#     --deploy-hook "docker compose -f /opt/vitaltech/docker-compose.prod.yml exec -T nginx nginx -s reload"
