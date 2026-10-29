@@ -9,7 +9,13 @@ const decimalString = (scale: number, max: string, label: string) =>
       new RegExp(`^\\d{1,13}(\\.\\d{1,${scale}})?$`),
       `${label} must be a positive number with at most ${scale} decimals`,
     )
-    .refine((value) => new Decimal(value).lessThanOrEqualTo(max), `${label} is too large`);
+    .refine((value) => {
+      try {
+        return new Decimal(value).lessThanOrEqualTo(max);
+      } catch {
+        return false;
+      }
+    }, `${label} is too large`);
 
 export const currencySchema = z.enum(["MMK", "USD", "THB"]);
 export const discountKindSchema = z.enum(["none", "percent", "amount"]);
@@ -110,6 +116,62 @@ export const companySettingsSchema = z
   .strict();
 
 export type CompanySettingsInput = z.infer<typeof companySettingsSchema>;
+
+const optionalEmail = z
+  .string()
+  .trim()
+  .max(200)
+  .refine(
+    (value) => value === "" || z.string().email().safeParse(value).success,
+    "Enter a valid email address",
+  )
+  .transform((value) => (value ? value : null));
+
+const optionalDecimal = (scale: number, max: string, label: string) =>
+  z.union([z.literal("").transform(() => null), decimalString(scale, max, label)]);
+
+export const customerInputSchema = z
+  .object({
+    name: z.string().trim().min(1, "Customer name is required").max(200),
+    attention: optionalText(200),
+    taxId: optionalText(100),
+    address: optionalText(2000),
+    city: optionalText(100),
+    country: z.string().trim().min(1, "Country is required").max(100),
+    phone: optionalText(100),
+    email: optionalEmail,
+    defaultCurrency: currencySchema,
+    notes: optionalText(4000),
+    isActive: z.boolean(),
+  })
+  .strict();
+
+export type CustomerInput = z.infer<typeof customerInputSchema>;
+
+export const productInputSchema = z
+  .object({
+    sku: z
+      .string()
+      .trim()
+      .toUpperCase()
+      .regex(
+        /^[A-Z0-9][A-Z0-9._-]{0,63}$/,
+        "Use letters, digits, dots, underscores and hyphens, max 64",
+      ),
+    name: z.string().trim().min(1, "Item name is required").max(300),
+    description: optionalText(2000),
+    category: optionalText(100),
+    unit: z.string().trim().min(1, "Unit is required").max(20),
+    costPriceMmk: decimalString(2, "1000000000", "Cost"),
+    taxPct: decimalString(3, "100", "Tax rate"),
+    priceMmk: decimalString(4, "1000000000", "MMK price"),
+    priceUsd: optionalDecimal(4, "1000000000", "USD price"),
+    priceThb: optionalDecimal(4, "1000000000", "THB price"),
+    isActive: z.boolean(),
+  })
+  .strict();
+
+export type ProductInput = z.infer<typeof productInputSchema>;
 
 export const loginSchema = z.object({
   email: z.string().trim().email(),

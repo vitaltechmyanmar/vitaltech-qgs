@@ -35,10 +35,12 @@ type ActionResult<T> =
 | `createRevision` | `quotationId` | copies header/items, `revision+1`, new FX rate, status `draft` |
 | `updateStatus` | `quotationId`, `status`, `note?` | allowed transitions only; `sent` sets `sent_at`; `accepted`/`rejected` set timestamps |
 | `deleteQuotation` | `quotationId` | admin only, `draft` only |
-| `upsertCustomer` | customer fields | sales/admin |
-| `deactivateCustomer` | id | admin; blocked if referenced by an active quote |
-| `upsertProduct` | product + prices | sales/admin; SKU unique; MMK price required |
-| `setProductActive` | id, active | admin |
+| `saveCustomer` | customer fields | sales/admin; create or update by optional id |
+| `setCustomerActive` | id, active | sales/admin; inactive customers are hidden from new quotes |
+| `deleteCustomer` | id | sales/admin; blocked when any quotation references the customer |
+| `saveProduct` | product + MMK/USD/THB prices | sales/admin; SKU unique; MMK price required; blank USD/THB removes that price |
+| `setProductActive` | id, active | sales/admin; inactive products are hidden from the editor |
+| `deleteProduct` | id | sales/admin; blocked when any quotation line references the product |
 | `upsertManualRate` | currency, rate, date, source | admin or sales; date ≥ today − 7 days |
 | `uploadLogo` | presigned PUT (route handler) | admin only; PNG/SVG ≤ 1 MB |
 | `updateCompanySettings` | settings | admin |

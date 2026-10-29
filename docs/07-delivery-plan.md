@@ -22,13 +22,13 @@ Calendar estimate with review cycles: **8–9 weeks**.
 | Phase | Status | Notes |
 |---|---|---|
 | 0 — Spike and foundation | **Done** | PDF + Burmese fonts proven; repo, migrations, auth, CI, Docker images, nginx edge in place |
-| 1 — Master data | **Partial** | Company profile is editable and FX pulls from the open feed; catalog, customers and user administration are still read-only/seed-only |
+| 1 — Master data | **Partial** | Company profile, catalog and customer CRUD are done; FX pulls from the open feed; user administration and manual FX entry remain |
 | 2 — Quotation editor and totals | **Done** | Live totals, DB-authoritative triggers, optimistic locking, guardrails, list filters |
 | 3 — PDF and lifecycle | **Done (S3 cache deferred)** | On-demand branded PDF, status transitions, revisions, expiry sweep; PDFs are not persisted to S3 yet |
 | 4 — Reports and hardening | **Partial** | Monthly/pipeline/product reports and audit events exist; CSV export, alarms, and the restore drill remain |
 | 5 — UAT and go-live | **Not started** | Requires the real catalog import, users, DNS, and production secrets |
 
-S3 PDF caching, CSV export, admin CRUD forms, and the AWS rollout are the
+S3 PDF caching, CSV export, user administration, and the AWS rollout are the
 remaining MVP-adjacent items. Everything currently in the repo has been run
 against PostgreSQL 16 and exercised in a browser; see the README validation
 section for the exact checks.

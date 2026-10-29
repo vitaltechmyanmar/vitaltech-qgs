@@ -6,8 +6,8 @@ VitalTech Myanmar's system-integration business.
 **Status:** Phase 0–3 scaffold implemented. The database, auth, quotation
 editor, lifecycle actions, reports, branded PDF, dev/production containers, and
 nginx edge config are in the repository and have been exercised end to end
-against PostgreSQL 16. Remaining MVP work is UAT hardening, catalog/customer
-editing forms, S3 caching, and the production AWS rollout
+against PostgreSQL 16. Remaining MVP work is UAT hardening, user
+administration, S3 caching, and the production AWS rollout
 (see [docs/07-delivery-plan.md](docs/07-delivery-plan.md)).
 
 ---
@@ -53,8 +53,8 @@ editing forms, S3 caching, and the production AWS rollout
 │   │   ├── login/                    credentials sign-in
 │   │   ├── (app)/                    authenticated layout + side nav
 │   │   │   ├── quotations/           list, new, [id], [id]/edit, actions, editor
-│   │   │   ├── customers/            read-only list (Phase 1 forms pending)
-│   │   │   ├── products/             read-only catalog (Phase 1 forms pending)
+│   │   │   ├── customers/            list, new, [id]/edit, server actions
+│   │   │   ├── products/             catalog, new, [id]/edit, server actions
 │   │   │   ├── reports/              monthly, pipeline, product performance
 │   │   │   └── settings/             company profile edit + FX read-only (admin)
 │   │   ├── api/
@@ -139,6 +139,7 @@ Useful scripts:
 | `pnpm lint` | ESLint via `next lint` |
 | `pnpm db:migrate` | Apply pending SQL migrations |
 | `pnpm db:seed` | Company profile, catalog, FX rates, demo quote, first admin |
+| `pnpm db:reset-admin` | Reset an existing admin password (see below) |
 
 ### Seed sign-in
 
@@ -150,8 +151,37 @@ email:    admin@vitaltechmyanmar.com
 password: DevPassword123!     # only when SEED_ADMIN_PASSWORD is set to this
 ```
 
-Never reuse that password outside a local database. Add sales/viewer accounts in
-SQL or the (pending) admin UI; there is deliberately no public sign-up.
+The seed never changes an existing admin password. `DevPassword123!` therefore
+only works where the account was seeded (or reset) with exactly that value.
+Never reuse it outside a local database.
+
+### Recovering the admin password
+
+If the password is lost or the account was seeded without
+`SEED_ADMIN_PASSWORD`, reset it against the target database:
+
+```bash
+DATABASE_URL='postgresql://user:pass@host:5432/vitaltech_quotes?sslmode=require' \
+SEED_ADMIN_PASSWORD='new-strong-password' \
+pnpm db:reset-admin
+```
+
+On EC2, run the same command from the app directory so it picks up the
+deployment environment, for example:
+
+```bash
+cd /opt/vitaltech-qgs
+docker compose -f docker-compose.prod.yml run --rm --no-deps \
+  -e SEED_ADMIN_PASSWORD='new-strong-password' \
+  migrate node scripts/reset-admin-password.mjs
+```
+
+The script updates only an active `admin` row, clears
+`must_change_password`, and prints the email it changed. It fails rather than
+creating an account if no active admin matches.
+
+Add sales/viewer accounts in SQL or the (pending) admin UI; there is
+deliberately no public sign-up.
 
 ## What works today
 
@@ -166,8 +196,9 @@ SQL or the (pending) admin UI; there is deliberately no public sign-up.
   fonts, DRAFT watermark, page numbers, terms, bank details, signature blocks.
 - Admin company profile editing (letterhead, contact, bank details, quotation
   defaults) with server-side validation; new quotes pick up the defaults.
-- Reports (monthly, pipeline, product performance), catalog/customer read-only
-  pages, health endpoint, FX and expiry cron endpoints.
+- Reports (monthly, pipeline, product performance), customer and product CRUD
+  (create, edit, activate/deactivate, guarded delete), health endpoint, FX and
+  expiry cron endpoints.
 - FX sync pulls USD/THB from the free open.er-api.com feed (or `FX_PROVIDER_URL`)
   and stores MMK-per-unit history; admins can trigger **Refresh rates** in Settings.
 - Nonce-based CSP, HSTS/security headers at nginx, login throttle, Docker
@@ -176,7 +207,7 @@ SQL or the (pending) admin UI; there is deliberately no public sign-up.
 ## Deliberately not in the MVP
 
 - Approval workflow, email delivery, customer portal.
-- Editing forms for products/customers (read-only for now); company logo upload.
+- Company logo upload and user administration; CSV export.
 - Manual exchange-rate entry/editing in Settings (the open feed and **Refresh
   rates** cover daily use; add a manual row in SQL if the feed is unavailable).
 - S3 PDF cache — PDFs render on demand and are never stored server-side.
@@ -232,14 +263,17 @@ MMK 6,526,710.00 · cost 1,180,000.00 · margin 5,035,895.00
 
 The scaffold has also been exercised end to end:
 
-- `tsc --noEmit`, 12 Vitest pricing tests, and `next build` pass without a
-  database connection.
+- `tsc --noEmit`, 22 Vitest tests (pricing, schemas, FX parsing), and
+  `next build` pass without a database connection.
 - Migration + seed are idempotent; the demo quote reproduces
   `2,276.00 / 45.52 / 111.52 / 2,342.00 USD` and `10,539,000.00 MMK`.
 - Browser flow: login, CSP nonce present with no console errors, list/detail,
   create, edit/save, stale-tab conflict rejection, sales discount guardrail,
   admin override, send status, revision clone, viewer read-only views, missing
   FX rejection.
+- Master-data CRUD: admin creates/edits/deactivates/reactivates/deletes products
+  and customers, prices persist per currency, referenced rows refuse deletion,
+  sales can edit, and viewers see no create/edit/delete controls.
 - PDF: 2-page A4 with Inter and Noto Sans Myanmar embedded; `pdftotext` extracts
   Burmese item descriptions intact. `/api/health` reports DB reachability.
 - Production standalone (`node server.js`) and the multi-stage Docker image run

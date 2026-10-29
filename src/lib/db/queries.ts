@@ -167,24 +167,67 @@ export async function getQuotationDetail(id: string): Promise<QuotationDetail | 
   };
 }
 
-export async function listCustomers(activeOnly = true): Promise<Customer[]> {
+export async function listCustomers(activeOnly = true, q?: string): Promise<Customer[]> {
+  const where = [];
+  if (activeOnly) where.push(eq(customers.isActive, true));
+  if (q?.trim()) {
+    const needle = `%${q.trim()}%`;
+    where.push(
+      or(
+        ilike(customers.name, needle),
+        ilike(customers.attention, needle),
+        ilike(customers.city, needle),
+        ilike(customers.email, needle),
+      )!,
+    );
+  }
+
   return getDb()
     .select()
     .from(customers)
-    .where(activeOnly ? eq(customers.isActive, true) : undefined)
+    .where(where.length ? and(...where) : undefined)
     .orderBy(asc(customers.name))
     .limit(500);
 }
 
 export type ProductWithPrices = Product & { prices: Record<string, string> };
 
-export async function listProductsWithPrices(activeOnly = true): Promise<ProductWithPrices[]> {
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export async function getCustomerById(id: string): Promise<Customer | null> {
+  if (!UUID_RE.test(id)) return null;
+  const [row] = await getDb()
+    .select()
+    .from(customers)
+    .where(eq(customers.id, id))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function listProductsWithPrices(
+  activeOnly = true,
+  q?: string,
+): Promise<ProductWithPrices[]> {
   const db = getDb();
+  const where = [];
+  if (activeOnly) where.push(eq(products.isActive, true));
+  if (q?.trim()) {
+    const needle = `%${q.trim()}%`;
+    where.push(
+      or(
+        ilike(products.sku, needle),
+        ilike(products.name, needle),
+        ilike(products.category, needle),
+      )!,
+    );
+  }
+
   const [rows, prices] = await Promise.all([
     db
       .select()
       .from(products)
-      .where(activeOnly ? eq(products.isActive, true) : undefined)
+      .where(where.length ? and(...where) : undefined)
       .orderBy(asc(products.category), asc(products.name)),
     db.select().from(productPrices),
   ]);
@@ -197,6 +240,30 @@ export async function listProductsWithPrices(activeOnly = true): Promise<Product
   }
 
   return rows.map((product) => ({ ...product, prices: byProduct.get(product.id) ?? {} }));
+}
+
+export async function getProductWithPricesById(
+  id: string,
+): Promise<ProductWithPrices | null> {
+  if (!UUID_RE.test(id)) return null;
+  const [product] = await getDb()
+    .select()
+    .from(products)
+    .where(eq(products.id, id))
+    .limit(1);
+  if (!product) return null;
+
+  const prices = await getDb()
+    .select()
+    .from(productPrices)
+    .where(eq(productPrices.productId, id));
+
+  return {
+    ...product,
+    prices: Object.fromEntries(
+      prices.map((price) => [price.currency, price.unitPrice]),
+    ),
+  };
 }
 
 export async function getLatestFxRate(currency: string): Promise<{

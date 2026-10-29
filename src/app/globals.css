@@ -55,6 +55,10 @@ textarea:focus {
   @apply border-brand-500 ring-2 ring-brand-100;
 }
 
+input[type="checkbox"] {
+  @apply h-4 w-4 rounded border-slate-300 p-0 shadow-none;
+}
+
 .btn {
   @apply inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition;
 }

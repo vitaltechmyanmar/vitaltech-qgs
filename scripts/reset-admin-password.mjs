@@ -1,7 +1,5 @@
-
+import { hash } from "@node-rs/argon2";
 import { Client } from "pg";
-import { hash } from "argon2";
-import { randomBytes } from "node:crypto";
 
 const email = (
   process.env.SEED_ADMIN_EMAIL ?? "admin@vitaltechmyanmar.com"
@@ -26,11 +24,12 @@ const client = new Client({
     : undefined,
 });
 
+// Keep these in sync with src/lib/auth/password.ts and scripts/seed.mjs.
 const passwordHash = await hash(password, {
-  memoryCost: 19456,
+  memoryCost: 19_456,
   timeCost: 2,
   parallelism: 1,
-  hashLength: 32,
+  outputLen: 32,
 });
 
 try {
