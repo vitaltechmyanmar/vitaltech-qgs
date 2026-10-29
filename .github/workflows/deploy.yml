@@ -1,4 +1,3 @@
-```yaml
 name: ci-cd
 
 on:
@@ -194,4 +193,3 @@ jobs:
             --retry-delay 5 \
             --retry-connrefused \
             https://quotes.vitaltechmyanmar.com/api/health
-```
