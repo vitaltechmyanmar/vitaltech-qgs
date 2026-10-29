@@ -6,7 +6,7 @@
 # ============================================================================
 set -euo pipefail
 
-cd /opt/vitaltech
+cd /opt/vitaltech-qgs
 
 IMAGE="${1:?usage: deploy.sh <image-uri>:<sha>}"
 MIGRATE_IMAGE="${IMAGE}-migrate"
