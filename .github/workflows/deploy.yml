@@ -18,45 +18,45 @@ env:
   ECR_REPOSITORY: vitaltech-qgs
 
 jobs:
-  # verify:
-  #   runs-on: ubuntu-24.04
-  #   services:
-  #     postgres:
-  #       image: postgres:16-alpine
-  #       env:
-  #         POSTGRES_USER: qgs
-  #         POSTGRES_PASSWORD: qgs
-  #         POSTGRES_DB: qgs_test
-  #       ports: ["5432:5432"]
-  #       options: >-
-  #         --health-cmd "pg_isready -U qgs"
-  #         --health-interval 5s
-  #         --health-timeout 5s
-  #         --health-retries 10
-  #   env:
-  #     DATABASE_URL: postgresql://qgs:qgs@localhost:5432/qgs_test?sslmode=disable
-  #   steps:
-  #     - uses: actions/checkout@v4
+  verify:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: qgs
+          POSTGRES_PASSWORD: qgs
+          POSTGRES_DB: qgs_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U qgs"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://qgs:qgs@localhost:5432/qgs_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
 
-  #     - uses: pnpm/action-setup@v4
-  #       with:
-  #         version: 9
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
 
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: 22
-  #         cache: pnpm
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
-  #     - run: pnpm install --frozen-lockfile
-  #     - run: pnpm db:migrate
-  #     - run: pnpm typecheck
-  #     - run: pnpm lint
-  #     - run: pnpm test
-  #     - run: pnpm build
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:migrate
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
 
   build:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    # needs: verify
+    needs: verify
     runs-on: ubuntu-24.04
     outputs:
       image: ${{ steps.meta.outputs.image }}
