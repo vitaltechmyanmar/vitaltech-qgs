@@ -1,4 +1,3 @@
-```bash
 #!/usr/bin/env bash
 # ============================================================================
 # QGS Production Deployment Script
@@ -218,4 +217,4 @@ if [[ -n "$PREVIOUS" && "$PREVIOUS" != "$IMAGE" ]]; then
 fi
 
 exit 1
-```
+
