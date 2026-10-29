@@ -160,7 +160,7 @@ jobs:
       - name: Verify AWS identity
         run: aws sts get-caller-identity
 
-      - name: Deploy on EC2 via SSM
+      - name: Deploy and run Docker containers on EC2
         env:
           INSTANCE_ID: ${{ secrets.QGS_INSTANCE_ID }}
           IMAGE: ${{ needs.build.outputs.image }}
@@ -169,7 +169,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Target EC2 instance: $INSTANCE_ID"
+          echo "Deploying to EC2: $INSTANCE_ID"
           echo "Application image: $IMAGE"
           echo "Migration image: $MIGRATE_IMAGE"
 
@@ -179,16 +179,17 @@ jobs:
             '{
               commands: [
                 "set -eu",
-                "test -f /opt/vitaltech-qgs/deploy/deploy.sh",
-                "chmod 750 /opt/vitaltech-qgs/deploy/deploy.sh",
-                ("/opt/vitaltech-qgs/deploy/deploy.sh " + $image + " " + $migrate)
+                "cd /opt/vitaltech-qgs",
+                "test -f deploy/deploy.sh",
+                ("/opt/vitaltech-qgs/deploy/deploy.sh " + $image + " " + $migrate),
+                "docker compose -f /opt/vitaltech-qgs/docker-compose.prod.yml ps"
               ]
             }')
 
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --comment "QGS deployment ${GITHUB_SHA}" \
+            --comment "QGS Docker deployment ${GITHUB_SHA}" \
             --parameters "$COMMANDS" \
             --query 'Command.CommandId' \
             --output text)
@@ -213,6 +214,18 @@ jobs:
             --query 'Status' \
             --output text)
 
+          if [[ "$STATUS" != "Success" ]]; then
+            echo "EC2 Docker deployment failed: $STATUS"
+            exit 1
+          fi
+
+      - name: Production smoke test
+        run: |
+          curl -fsS \
+            --retry 5 \
+            --retry-delay 5 \
+            --retry-connrefused \
+            https://quotes.vitaltechmyanmar.com/api/health
           if [[ "$STATUS" != "Success" ]]; then
             echo "Deployment failed with SSM status: $STATUS"
             exit 1
