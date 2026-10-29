@@ -120,7 +120,7 @@ jobs:
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --comment "qgs deploy ${GITHUB_SHA}" \
-            --parameters "commands=/opt/vitaltech/deploy.sh $IMAGE" \
+            --parameters "commands=/opt/vitaltech-qgs/deploy/deploy.sh $IMAGE" \
             --query 'Command.CommandId' --output text)
 
           aws ssm wait command-executed \
@@ -141,4 +141,4 @@ jobs:
           [[ "$STATUS" == "Success" ]] || { echo "Deploy failed: $STATUS"; exit 1; }
 
       - name: Smoke test
-        run: curl -fsS --retry 5 --retry-delay 5 https://vitaltechmyanmar.com/api/health
+        run: curl -fsS --retry 5 --retry-delay 5 https://quotes.vitaltechmyanmar.com/api/health
