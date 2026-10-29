@@ -228,22 +228,24 @@ jobs:
             exit 1
           fi
 
+      
       - name: Production smoke test
+        shell: bash
         run: |
           set -euo pipefail
 
           echo "Checking production health endpoint..."
 
-          curl --fail --silent --show-error \
+          RESPONSE=$(curl --fail --silent --show-error \
             --retry 5 \
             --retry-delay 5 \
             --retry-connrefused \
             --max-time 15 \
-            https://quotes.vitaltechmyanmar.com/api/health
+            https://quotes.vitaltechmyanmar.com/api/health)
 
-          echo
+          echo "$RESPONSE"
+
+          echo "$RESPONSE" | jq -e \
+            '.status == "ok" and .db == "ok"' > /dev/null
+
           echo "Production health check passed."
-          if [[ "$STATUS" != "Success" ]]; then
-            echo "Deployment failed with SSM status: $STATUS"
-            exit 1
-          fi
